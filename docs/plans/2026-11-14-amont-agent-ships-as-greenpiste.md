@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 branch: feat/greenpiste-ships
 repos: [amont-agent, grh, greenharness-skills, decisions]
 adrs: [ADR-0064, ADR-0068]
@@ -243,13 +243,13 @@ and grh pins greenpiste 4.0.0 by its new name.
 - [x] Phase 4b — release 4.0.0 (shipped as 4.0.1), after this branch merges: the tag only after
   the crates.io token scope is checked; the tap files are written by
   `publish-tap`.
-- [ ] Phase 5 — grh and the skills: `grh/catalog.toml`, `grh/src/install.rs`, `grh/src/fetch.rs`, `grh/src/uninstall.rs`, `grh/src/manifest.rs`, `grh/docs/extension-manifest.md`, `grh/tests/cli.rs`,
+- [x] Phase 5 — grh and the skills: `grh/catalog.toml`, `grh/src/install.rs`, `grh/src/fetch.rs`, `grh/src/uninstall.rs`, `grh/src/manifest.rs`, `grh/docs/extension-manifest.md`, `grh/tests/cli.rs`,
   `grh/scripts/e2e.sh`, `grh/README.md`, `grh/CHANGELOG.md`, released;
   `greenharness-skills/parts/workflow/skills/plan-review/SKILL.md`,
   `greenharness-skills/parts/workflow/skills/worktree-task/SKILL.md`,
   `greenharness-skills/parts/gate/skills/tag-release/SKILL.md` and the
   other files naming `amont-agent <cmd>`, released.
-- [ ] Phase 6 — record: `decisions/docs/programmes/gate-guardrails/map.md`
+- [x] Phase 6 — record: `decisions/docs/programmes/gate-guardrails/map.md`
   (step 3b split into 3b-1 and 3b-2, this plan's outcome).
 
 ## Verification
@@ -303,6 +303,15 @@ give a working greenpiste 4.0.0, the hooks run as `greenpiste`, and
 `amont-agent` answers only as an alias until the census.
 
 ## Decision log
+
+- 2026-11-14 (Phases 5 and 6) — done. grh 0.6.0 (grh#39, #40; release run
+  43625017302 green: GitHub, tap and crates.io): manifests may declare
+  `[tool] bin_aliases`; an install over a renamed binary refreshes the hook
+  integration and deletes old files only after their successor works;
+  greenpiste 4.0.1 is pinned from its shipped manifest; CI's `e2e.sh` ran
+  against the real 4.0.1 release on macOS and Ubuntu. Skills 0.7.0
+  (skills#22) name greenpiste. The programme map records step 3b-1
+  (decisions#201). Next: plan 3b-2, greenpiste's data names.
 
 - 2026-11-14 (Phase 4b) — released as 4.0.1; the upgrade from amont-agent
   is seen working on this machine, and the CI upgrade step with `brew trust`
