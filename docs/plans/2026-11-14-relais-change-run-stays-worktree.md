@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 branch: feat/relais-run-forks
 repos: [amont-agent]
 adrs: []
@@ -210,6 +210,11 @@ Rollback: set the stance to `observe`, or remove the block.
   `diff -q` equal, real `~/.claude/settings.json` sha unchanged.
 - Suite: `cargo clippy --workspace --all-targets -- -D warnings`;
   `cargo test --workspace --locked`.
+  Observed: the greengate commit gate (clippy `-D warnings`, `cargo fmt`,
+  `cargo test --workspace --locked`) passed 28 of 28 checks on each of the
+  three code commits (`7dc3fed2`, `0241124e`, `aff5a0fa`; one fmt refusal
+  fixed before the last). `cargo test --test hook relais_run_forks` on
+  `aff5a0fa`: 10 passed, 0 failed, 1.93 s, the FIFO case included.
 - After the person's install (follow-up, not a pending row): one real
   relais change run from a primary checkout shows the advice. After seven
   days, each fire is matched to its relais run (session, repo, time) and
@@ -217,6 +222,24 @@ Rollback: set the stance to `observe`, or remove the block.
   change run that resolved `fork` or `isolated` is matched to a fire.
   Counted: false fires, missed forks, and fires followed by an in-place
   retry. Missed forks reopen the relais-mode question; `deny` needs a
-  non-empty sample with no false fire, not just zero misses.
+  non-empty sample with no false fire, not just zero misses. The audit also
+  counts `kind_unknown` beside the misses, needs at least 5 matched fires
+  before `deny`, and rewords the deny text at the switch (carried from review).
+
+## Outcome
+Shipped on this branch: the `relais-run-forks` rule (advise, ceiling
+`deny`) with its install target, corpus, 10 hook tests and 2 unit tests, docs row and
+CHANGELOG entry. The release is cut after the merge (`tag-release`); the
+install, and with it the live check and the seven-day audit, are the
+person's to start. Surprise: Codex found the "held" fire rested on a wrong
+reading of the baseline (relais refuses a held worktree, it never forks it),
+and a review-suggested TOCTOU fix re-opened the FIFO hang it meant to close.
+
+## Implementation review
+- implementation-review: approve-with-changes → Delta new blocker (FIFO opened before check) → approve; 9 cleanup reasons, counts fixed; 69k + 81k + 24k tok.
+- backend: approve-with-changes → approve; bare journalled, probe_failed test, LC_ALL; deliberate: no French-locale test (needs gettext catalogs); 69k + 78k tok.
+- lang:rust: approve-with-changes ×2 → approve; run's repo journalled; deliberate: Workspace stays a string (validated once), FIFO swap window and untimed hang test (60 s hook timeout bounds it); 60k + 68k + 23k tok.
+- tui: approve-with-changes → approve; primary text names the resolved dir, "is in", "leave workspace unset"; deliberate: deny wording waits for the switch; 58k + 67k tok.
+- unix: approve-with-changes ×2 → approve; LC_ALL, bare docs, CHANGELOG install note, FIFO order; 49k + 59k + 23k tok.
 
 <!-- panel: repos=amont-agent reviewers=backend,lang:rust,tui,unix,codex body-sha=1bfa7c73048b -->
