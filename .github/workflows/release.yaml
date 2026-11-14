@@ -657,7 +657,11 @@ jobs:
           set -euo pipefail
           musl="greenpiste-$VERSION-x86_64-unknown-linux-musl"
           gh release download "v$VERSION" --pattern SHA256SUMS --pattern "$musl.tar.gz"
-          sha256sum -c --ignore-missing SHA256SUMS
+          # Check only the tarball just downloaded. `--ignore-missing` would
+          # also check every listed file that happens to exist here, and this
+          # is a checkout: its committed greenharness.toml (no [tool.release])
+          # shares a name with the published manifest and never matches.
+          grep " $musl.tar.gz\$" SHA256SUMS | sha256sum -c -
           mkdir rel && tar -xzf "$musl.tar.gz" -C rel
           GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
             "rel/$musl/greenpiste" rules --json > rules.json
