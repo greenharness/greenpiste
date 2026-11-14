@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v4.0.1
+
+### Fixed
+
+- The release's Homebrew step checks only the tarball it downloaded. In
+  v4.0.0 it also checked the repository's own `greenharness.toml` against the
+  published manifest's checksum, failed, and published no formula: v4.0.0 is
+  on GitHub and crates.io, but `brew` never offered it. v4.0.1 is the first
+  release with `fredericrous/tap/greenpiste`.
+
 ## v4.0.0
 
 ### Changed

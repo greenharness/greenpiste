@@ -9,7 +9,7 @@
 
 [extension]
 name = "greenpiste"
-version = "4.0.0"
+version = "4.0.1"
 harness = ">=0.3"
 summary = "what an agent's tool call may do: a Claude Code hook"
 needs = []
