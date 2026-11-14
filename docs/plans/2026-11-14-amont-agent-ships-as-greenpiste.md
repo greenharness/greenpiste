@@ -240,7 +240,7 @@ and grh pins greenpiste 4.0.0 by its new name.
   `amont-agent/packaging/homebrew/greenpiste.rb` (class `Greenpiste`, `bin.install "greenpiste"`, the alias as a copy, `def refusing_by_default`, a `test do` running both names).
 - [x] Phase 4a — docs: `amont-agent/README.md`, `amont-agent/docs/`,
   `amont-agent/CHANGELOG.md`.
-- [ ] Phase 4b — release 4.0.0, after this branch merges: the tag only after
+- [x] Phase 4b — release 4.0.0 (shipped as 4.0.1), after this branch merges: the tag only after
   the crates.io token scope is checked; the tap files are written by
   `publish-tap`.
 - [ ] Phase 5 — grh and the skills: `grh/catalog.toml`, `grh/src/install.rs`, `grh/src/fetch.rs`, `grh/src/uninstall.rs`, `grh/src/manifest.rs`, `grh/docs/extension-manifest.md`, `grh/tests/cli.rs`,
@@ -314,9 +314,14 @@ give a working greenpiste 4.0.0, the hooks run as `greenpiste`, and
   pre-rename formula stopped at Homebrew's trust check ("Refusing to load
   formula fredericrous/tap/greenpiste from untrusted tap"), because the rename
   lands on a formula nobody named. The check and `docs/install.md` now run
-  `brew trust --formula fredericrous/tap/greenpiste` first (this branch). The
-  person asked for that trust on this machine and it was run; their own
-  `brew upgrade` is the next real run of the upgrade path.
+  `brew trust --formula fredericrous/tap/greenpiste` first (this branch). On this
+  machine (the person asked for both): `brew trust --formula
+  fredericrous/tap/greenpiste`, then `brew upgrade fredericrous/tap/amont-agent`
+  migrated the keg to `greenpiste/4.0.1`; `/usr/local/bin/greenpiste` and
+  `/usr/local/bin/amont-agent` both answer `greenpiste 4.0.1` and are `cmp`
+  identical; `greenpiste install --write` moved all 16 hook entries from
+  `/usr/local/bin/amont-agent` to `/usr/local/bin/greenpiste` (none left on the
+  old name, none doubled); `greenpiste doctor` passes with no old-name warning.
 
 - 2026-11-14 — PR #254's windows-latest CI failed in the names test: it
   built the shown path with `.display()`, which uses backslashes on Windows,
