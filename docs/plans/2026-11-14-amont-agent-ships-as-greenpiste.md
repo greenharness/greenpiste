@@ -304,8 +304,9 @@ give a working greenpiste 4.0.0, the hooks run as `greenpiste`, and
 
 ## Decision log
 
-- 2026-11-14 (Phase 4b) — released as 4.0.1; open until the upgrade from
-  amont-agent is seen working. v4.0.0 (run 43614594979) published the GitHub
+- 2026-11-14 (Phase 4b) — released as 4.0.1; the upgrade from amont-agent
+  is seen working on this machine, and the CI upgrade step with `brew trust`
+  first runs at the next tag (4.0.2 or later). v4.0.0 (run 43614594979) published the GitHub
   release, crates.io and the post-publish install, but its tap job failed: the
   checksum check ran in the checkout and read the committed `greenharness.toml`
   (fixed, PR #256). v4.0.1 (run 43617034578): every job green up to the tap,
@@ -319,7 +320,8 @@ give a working greenpiste 4.0.0, the hooks run as `greenpiste`, and
   fredericrous/tap/greenpiste`, then `brew upgrade fredericrous/tap/amont-agent`
   migrated the keg to `greenpiste/4.0.1`; `/usr/local/bin/greenpiste` and
   `/usr/local/bin/amont-agent` both answer `greenpiste 4.0.1` and are `cmp`
-  identical; `greenpiste install --write` moved all 16 hook entries from
+  identical; `greenpiste install --write` moved all 16 hook entries (15 at planning, plus the one 3.35.0's
+  clear-at-boundary added; a scratch `install --write` also writes 16) from
   `/usr/local/bin/amont-agent` to `/usr/local/bin/greenpiste` (none left on the
   old name, none doubled); `greenpiste doctor` passes with no old-name warning.
 
