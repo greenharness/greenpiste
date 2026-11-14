@@ -173,6 +173,13 @@ Rollback: set the stance to `observe`, or remove the block.
 - 2026-11-14 — Implemented by relais run run-6603e92b3b99c-1fa9 (in place in
   this worktree, accepted), with the 10 findings carried from review; paths
   are `crates/greenpiste-guard/...`, since 3b-1 (#254) merged first.
+- 2026-11-14 — Implementation review changed the primary text to `<dir> is
+  in the primary checkout, so this change run would fork a worktree of its
+  own. Start a worktree with the worktree-task skill, pass its path as cwd,
+  and leave workspace unset.`, with `<dir>` the resolved run directory
+  (tui: a `sub/` or `.` cwd was named "the primary checkout"). A bare repo
+  is journalled `bare`; the probe runs under `LC_ALL=C`; the journal names
+  the run's repository, not the session's.
 
 ## Verification
 - Phase 1–2, the debug binary fed real PreToolUse JSON with a scratch
@@ -191,9 +198,10 @@ Rollback: set the stance to `observe`, or remove the block.
   and `isolated` → the second text naming the value; linked auto, linked
   auto with `relais-inplace/run-x.json`, `in-place`, `bogus`, `kind:
   inspect` (object and relative path), a non-repo dir and a bare repo →
-  empty. 14 cases, every one exit 0, 0 B stderr. Journal: 5 primary + 2
-  second `advised` rows, 1 `not_a_repo` row, none for the silent in-repo
-  cases. (The plan's "through `/tmp`" case was run as a symlink to the
+  empty. 14 cases plus one extra primary call piped to `jq -e .`, every one
+  exit 0, 0 B stderr. Journal: 5 primary `advised` rows (the 4 primary
+  cases and the `jq` call) + 2 second, 1 `not_a_repo` row, none for the
+  silent in-repo cases. (The plan's "through `/tmp`" case was run as a symlink to the
   primary, which is what it tests.)
 - Install: `install --write` twice on a scratch copy of the real
   `settings.json` → one new block, second run no diff, real file untouched.

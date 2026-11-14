@@ -10,7 +10,8 @@
   time, to start a `worktree-task` worktree and leave `workspace` unset in it.
   Inspection and verify runs, `in-place`, and a `cwd` the hook cannot place
   are left alone. `greenpiste install --write` adds one `PreToolUse` block
-  for `mcp__relais__run`.
+  for `mcp__relais__run`; an existing install gets the advice only after
+  running it again.
 
 ### Fixed
 

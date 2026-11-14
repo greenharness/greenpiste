@@ -108,9 +108,11 @@ pub fn phrase(fire: Fire, workspace: Option<&str>, cwd: &str) -> String {
         Fire::Primary => crate::decision::phrase(
             RULE.id,
             &format!(
-                "{cwd} is the primary checkout, so this change run would fork a worktree of its own."
+                "{cwd} is in the primary checkout, so this change run would fork a worktree of \
+                 its own."
             ),
-            "Start a worktree-task worktree and pass its path as cwd.",
+            "Start a worktree with the worktree-task skill, pass its path as cwd, and leave \
+             workspace unset.",
         ),
     }
 }
@@ -146,8 +148,9 @@ mod tests {
     fn the_texts_are_the_plans() {
         assert_eq!(
             phrase(Fire::Primary, None, "/r"),
-            "greenpiste/relais-run-forks: /r is the primary checkout, so this change run would \
-             fork a worktree of its own. Start a worktree-task worktree and pass its path as cwd."
+            "greenpiste/relais-run-forks: /r is in the primary checkout, so this change run \
+             would fork a worktree of its own. Start a worktree with the worktree-task skill, \
+             pass its path as cwd, and leave workspace unset."
         );
         assert_eq!(
             phrase(Fire::Second, Some("fork"), "/r"),

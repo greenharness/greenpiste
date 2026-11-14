@@ -226,8 +226,6 @@ pub struct RelaisRunOp {
     pub run_cwd: Option<String>,
     pub task: RelaisTask,
     pub workspace: Option<String>,
-    /// The payload's `agent_id`; `None` for the main conversation.
-    pub agent_id: Option<String>,
     /// The session's working directory.
     pub cwd: PathBuf,
     pub session: String,
@@ -643,7 +641,6 @@ pub fn parse(raw: &str) -> Event {
                 run_cwd: field("cwd"),
                 task,
                 workspace: field("workspace"),
-                agent_id: agent_id(),
                 cwd: cwd.clone(),
                 session: str_at("session_id"),
                 permission_mode: str_at("permission_mode"),

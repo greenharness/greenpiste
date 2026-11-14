@@ -552,7 +552,7 @@ pub fn checkout_probe(dir: &std::path::Path, deadline: Instant) -> CheckoutProbe
         "--git-dir",
         "--git-common-dir",
     ];
-    let bytes = match bytes_bounded_detail(dir, &args, None, &[], deadline) {
+    let bytes = match bytes_bounded_detail(dir, &args, None, &[("LC_ALL", "C")], deadline) {
         Ok(bytes) => bytes,
         Err(BoundedFailure::Exited { stderr }) if stderr.contains("not a git repository") => {
             return CheckoutProbe::NotARepo;

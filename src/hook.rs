@@ -2065,13 +2065,14 @@ fn relais_task_kind(
         RelaisTask::Unknown => None,
         RelaisTask::Path(path) => {
             let path = cwd.join(path);
-            if !std::fs::metadata(&path).ok()?.is_file() {
+            // Judged on the opened handle, so the file cannot be swapped for
+            // a FIFO between the check and the read.
+            let file = std::fs::File::open(&path).ok()?;
+            if !file.metadata().ok()?.is_file() {
                 return None;
             }
             let mut text = Vec::new();
-            std::fs::File::open(&path)
-                .ok()?
-                .take(CONTRACT_READ_LIMIT + 1)
+            file.take(CONTRACT_READ_LIMIT + 1)
                 .read_to_end(&mut text)
                 .ok()?;
             if text.len() as u64 > CONTRACT_READ_LIMIT {
@@ -2090,27 +2091,32 @@ fn on_relais_run(op: &crate::payload::RelaisRunOp) -> Decision {
     use rules::relais_run_forks as rrf;
     let rule = &rrf::RULE;
     let stance = crate::stance::resolve(rule);
+    let Some(run_cwd) = op.run_cwd.as_deref() else {
+        return Decision::Silent;
+    };
+    let run_dir = op.cwd.join(run_cwd);
+    // The run's repository, not the session's: the week's audit matches a
+    // fire to its relais run by repository.
     let journal_as = |outcome: &str, excerpt: &str| {
         journal::record(&journal::Entry {
             rule: rule.id,
             stance: stance.as_str(),
             outcome,
             session: &op.session,
-            repo: &repo_name(&op.cwd),
+            repo: &repo_name(&run_dir),
             mode: &op.permission_mode,
             excerpt,
         });
     };
-    let Some(run_cwd) = op.run_cwd.as_deref() else {
-        return Decision::Silent;
-    };
-    let run_dir = op.cwd.join(run_cwd);
     let workspace = op.workspace.as_deref();
     let checkout = match crate::git::checkout_probe(
         &run_dir,
         std::time::Instant::now() + CHECKOUT_PROBE_DEADLINE,
     ) {
-        CheckoutProbe::Bare => return Decision::Silent,
+        CheckoutProbe::Bare => {
+            journal_as("silent", "relais run bare");
+            return Decision::Silent;
+        }
         CheckoutProbe::NotARepo => {
             journal_as("silent", "relais run not_a_repo");
             return Decision::Silent;
@@ -2140,7 +2146,9 @@ fn on_relais_run(op: &crate::payload::RelaisRunOp) -> Decision {
             workspace.unwrap_or("auto")
         ),
     );
-    let text = rrf::phrase(fire, workspace, run_cwd);
+    // The resolved directory, so `.` or a symlink names the real place.
+    let shown = std::fs::canonicalize(&run_dir).unwrap_or_else(|_| run_dir.clone());
+    let text = rrf::phrase(fire, workspace, &shown.display().to_string());
     match stance {
         Stance::Observe => Decision::Silent,
         Stance::Advise => Decision::Advise(text),
