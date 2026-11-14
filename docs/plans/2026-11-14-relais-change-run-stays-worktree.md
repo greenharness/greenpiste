@@ -234,12 +234,16 @@ install, and with it the live check and the seven-day audit, are the
 person's to start. Surprise: Codex found the "held" fire rested on a wrong
 reading of the baseline (relais refuses a held worktree, it never forks it),
 and a review-suggested TOCTOU fix re-opened the FIFO hang it meant to close.
+PR #257's first CI run failed on `tests (windows-latest)`: the fixture's
+canonical temp dir carried Windows's verbatim `\\?\` prefix, which `git
+worktree add` refuses. `f54f36e6` strips it in the fixture and in the
+displayed path; macOS and Ubuntu were green on that run.
 
 ## Implementation review
-- implementation-review: approve-with-changes → Delta new blocker (FIFO opened before check) → approve; 9 cleanup reasons, counts fixed; 69k + 81k + 24k tok.
+- implementation-review: approve-with-changes → Delta new blocker (FIFO opened before check) → approve; 9 cleanup reasons, counts fixed; approve after the rebase and the Windows fix; 69k + 81k + 24k + 29k + 33k tok.
 - backend: approve-with-changes → approve; bare journalled, probe_failed test, LC_ALL; deliberate: no French-locale test (needs gettext catalogs); 69k + 78k tok.
 - lang:rust: approve-with-changes ×2 → approve; run's repo journalled; deliberate: Workspace stays a string (validated once), FIFO swap window and untimed hang test (60 s hook timeout bounds it); 60k + 68k + 23k tok.
-- tui: approve-with-changes → approve; primary text names the resolved dir, "is in", "leave workspace unset"; deliberate: deny wording waits for the switch; 58k + 67k tok.
+- tui: approve-with-changes → approve; primary text names the resolved dir, "is in", "leave workspace unset"; deliberate: deny wording waits for the switch; deliberate (with lang:rust): a Windows UNC `\\?\UNC\` path displays as `UNC\…`, display-only and no fleet machine runs Windows, `dunce` would need its own dependency argument; 58k + 67k tok.
 - unix: approve-with-changes ×2 → approve; LC_ALL, bare docs, CHANGELOG install note, FIFO order; 49k + 59k + 23k tok.
 
 <!-- panel: repos=amont-agent reviewers=backend,lang:rust,tui,unix,codex body-sha=1bfa7c73048b -->
