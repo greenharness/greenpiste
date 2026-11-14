@@ -304,6 +304,20 @@ give a working greenpiste 4.0.0, the hooks run as `greenpiste`, and
 
 ## Decision log
 
+- 2026-11-14 (Phase 4b) — released as 4.0.1; open until the upgrade from
+  amont-agent is seen working. v4.0.0 (run 43614594979) published the GitHub
+  release, crates.io and the post-publish install, but its tap job failed: the
+  checksum check ran in the checkout and read the committed `greenharness.toml`
+  (fixed, PR #256). v4.0.1 (run 43617034578): every job green up to the tap,
+  which now holds `Formula/greenpiste.rb` and the rename; `verify-brew`'s fresh
+  install, version, guard and `brew test` steps passed; its upgrade from the
+  pre-rename formula stopped at Homebrew's trust check ("Refusing to load
+  formula fredericrous/tap/greenpiste from untrusted tap"), because the rename
+  lands on a formula nobody named. The check and `docs/install.md` now run
+  `brew trust --formula fredericrous/tap/greenpiste` first (this branch). The
+  person asked for that trust on this machine and it was run; their own
+  `brew upgrade` is the next real run of the upgrade path.
+
 - 2026-11-14 — PR #254's windows-latest CI failed in the names test: it
   built the shown path with `.display()`, which uses backslashes on Windows,
   so the names module and the kept lines never matched. Fixed by normalising
