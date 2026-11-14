@@ -90,7 +90,7 @@ and grh pins greenpiste 4.0.0 by its new name.
 
 
 ## Code review
-- amont-agent: backend, lang:rust, lang:python, platform, unix, tui, architect
+- amont-agent: platform (narrowed after 4.0.1: the remaining branch changes only the release workflow and docs; backend, lang:rust, lang:python, unix, tui and architect reviewed the code through 99468e9c, merged as #254)
 - grh: backend, lang:rust, unix (lang:python left out: no Python file; platform left out: no workflow changed; tui left out: one recommend string; architect left out: a catalog entry in the existing format)
 - greenharness-skills: none — markdown only
 - decisions: none — markdown only
