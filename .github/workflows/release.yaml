@@ -795,6 +795,11 @@ jobs:
           brew install fredericrous/tap/amont-agent
           # Back to the tap's branch, not a detached HEAD.
           git -C "$tap_dir" checkout --quiet -
+          # Homebrew trusts a tap formula only when it is named: installing
+          # amont-agent by name trusted it, but the rename lands on greenpiste,
+          # which nobody named, and brew refuses to load it ("untrusted tap").
+          # A person upgrading runs the same `brew trust` (docs/install.md).
+          brew trust --formula fredericrous/tap/greenpiste
           # Only ours: a bare `brew upgrade` would upgrade every formula on
           # the runner. The old name goes through formula_renames.json.
           brew upgrade fredericrous/tap/amont-agent

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed
+
+- The Homebrew upgrade from `amont-agent` needs `brew trust --formula
+  fredericrous/tap/greenpiste` first: Homebrew trusts only the formula you
+  named, and the rename lands on greenpiste. `docs/install.md` says so, and the
+  release's brew check runs the same step.
+
 ## v4.0.1
 
 ### Fixed

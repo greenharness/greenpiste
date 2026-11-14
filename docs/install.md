@@ -28,8 +28,17 @@ silicon), and Windows x86_64.
 greenpiste was called `amont-agent` until 4.0.0. The installers and the
 formula also place `amont-agent` beside `greenpiste`, as a copy of the same
 binary, so hook entries written for the old name keep firing after the
-upgrade. `brew upgrade fredericrous/tap/amont-agent` moves to greenpiste
-through the tap's rename. Then move the hook entries to the new name once:
+upgrade. With Homebrew, the upgrade goes through the tap's rename, and
+Homebrew trusts only the formula you named, so trust greenpiste first:
+
+```sh
+brew trust --formula fredericrous/tap/greenpiste
+brew upgrade fredericrous/tap/amont-agent
+```
+
+Without the `brew trust`, Homebrew stops with "Refusing to load formula
+fredericrous/tap/greenpiste from untrusted tap". Then move the hook entries
+to the new name once:
 
 ```sh
 greenpiste install --write   # replaces the amont-agent entries, adds no second set
