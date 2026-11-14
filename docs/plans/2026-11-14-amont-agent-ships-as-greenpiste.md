@@ -312,6 +312,14 @@ give a working greenpiste 4.0.0, the hooks run as `greenpiste`, and
   against the real 4.0.1 release on macOS and Ubuntu. Skills 0.7.0
   (skills#22) name greenpiste. The programme map records step 3b-1
   (decisions#201). Next: plan 3b-2, greenpiste's data names.
+  Observed after the install: this session's hook denials print the new
+  prefix (`greenpiste/glob-in-flag-value`, `greenpiste/implementation-review`,
+  `greenpiste/symbol-grep-not-lsp`). Gaps, kept open: grh's upgrade over a
+  real 3.23.1 receipt was not run (covered by `tests/cli.rs`'s seeded
+  placed-`amont-agent` receipt and e2e.sh's fresh install, not a real old
+  receipt); release.yaml's verify-brew upgrade step with `brew trust` first
+  runs at the next greenpiste tag, a dated check in the programme's open
+  checks.
 
 - 2026-11-14 (Phase 4b) — released as 4.0.1; the upgrade from amont-agent
   is seen working on this machine, and the CI upgrade step with `brew trust`
@@ -324,7 +332,7 @@ give a working greenpiste 4.0.0, the hooks run as `greenpiste`, and
   pre-rename formula stopped at Homebrew's trust check ("Refusing to load
   formula fredericrous/tap/greenpiste from untrusted tap"), because the rename
   lands on a formula nobody named. The check and `docs/install.md` now run
-  `brew trust --formula fredericrous/tap/greenpiste` first (this branch). On this
+  `brew trust --formula fredericrous/tap/greenpiste` first (greenpiste#258). On this
   machine (the person asked for both): `brew trust --formula
   fredericrous/tap/greenpiste`, then `brew upgrade fredericrous/tap/amont-agent`
   migrated the keg to `greenpiste/4.0.1`; `/usr/local/bin/greenpiste` and
