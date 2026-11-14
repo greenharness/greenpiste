@@ -413,6 +413,8 @@ pub const TARGETS: &[(&str, Option<&str>)] = &[
         "PreToolUse",
         Some(crate::rules::screenshot_in_main_session::TOOL),
     ),
+    // `relais-run-forks`: the relais run tool, by its literal MCP name.
+    ("PreToolUse", Some(crate::rules::relais_run_forks::TOOL)),
     // The turn ending: the one moment a plan left open can be seen.
     ("Stop", None),
 ];

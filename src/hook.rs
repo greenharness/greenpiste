@@ -214,6 +214,7 @@ fn decide(raw: &str) -> Decision {
         Event::PreFile(op) => on_pre_file(&op),
         Event::PreGrep(op) => on_grep(&op),
         Event::PreScreenshot(op) => on_screenshot(&op),
+        Event::PreRelaisRun(op) => on_relais_run(&op),
         Event::PostLsp(call) => on_post_lsp(&call),
         Event::PostFile(op) => on_post_file(&op),
         Event::PostWrite(op) => on_post_write(&op),
@@ -2037,6 +2038,113 @@ fn on_screenshot(op: &crate::payload::ScreenshotOp) -> Decision {
             journal_as("advised");
             Decision::Advise(sms::phrase())
         }
+    }
+}
+
+/// The most a contract file is read for its `kind`.
+const CONTRACT_READ_LIMIT: u64 = 64 * 1024;
+
+/// How long the checkout probe may take.
+const CHECKOUT_PROBE_DEADLINE: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// The kind of a relais task; `None` when it cannot be told (unreadable,
+/// not a regular file, too large, unparsable, or an unknown shape).
+fn relais_task_kind(
+    task: &crate::payload::RelaisTask,
+    cwd: &std::path::Path,
+) -> Option<rules::relais_run_forks::Kind> {
+    use crate::payload::RelaisTask;
+    use rules::relais_run_forks::Kind;
+    use std::io::Read;
+    let from_kind = |kind: Option<&str>| match kind {
+        None | Some("change") => Kind::Change,
+        Some(_) => Kind::Other,
+    };
+    match task {
+        RelaisTask::Inline { kind } => Some(from_kind(kind.as_deref())),
+        RelaisTask::Unknown => None,
+        RelaisTask::Path(path) => {
+            let path = cwd.join(path);
+            if !std::fs::metadata(&path).ok()?.is_file() {
+                return None;
+            }
+            let mut text = Vec::new();
+            std::fs::File::open(&path)
+                .ok()?
+                .take(CONTRACT_READ_LIMIT + 1)
+                .read_to_end(&mut text)
+                .ok()?;
+            if text.len() as u64 > CONTRACT_READ_LIMIT {
+                return None;
+            }
+            let contract: serde_json::Value = serde_json::from_slice(&text).ok()?;
+            let object = contract.as_object()?;
+            Some(from_kind(object.get("kind").and_then(|x| x.as_str())))
+        }
+    }
+}
+
+/// A relais `run` that would fork a worktree of its own: advised every time.
+fn on_relais_run(op: &crate::payload::RelaisRunOp) -> Decision {
+    use crate::git::CheckoutProbe;
+    use rules::relais_run_forks as rrf;
+    let rule = &rrf::RULE;
+    let stance = crate::stance::resolve(rule);
+    let journal_as = |outcome: &str, excerpt: &str| {
+        journal::record(&journal::Entry {
+            rule: rule.id,
+            stance: stance.as_str(),
+            outcome,
+            session: &op.session,
+            repo: &repo_name(&op.cwd),
+            mode: &op.permission_mode,
+            excerpt,
+        });
+    };
+    let Some(run_cwd) = op.run_cwd.as_deref() else {
+        return Decision::Silent;
+    };
+    let run_dir = op.cwd.join(run_cwd);
+    let workspace = op.workspace.as_deref();
+    let checkout = match crate::git::checkout_probe(
+        &run_dir,
+        std::time::Instant::now() + CHECKOUT_PROBE_DEADLINE,
+    ) {
+        CheckoutProbe::Bare => return Decision::Silent,
+        CheckoutProbe::NotARepo => {
+            journal_as("silent", "relais run not_a_repo");
+            return Decision::Silent;
+        }
+        CheckoutProbe::Failed => {
+            journal_as("silent", "relais run probe_failed");
+            return Decision::Silent;
+        }
+        CheckoutProbe::Primary => rrf::Checkout::Primary,
+        CheckoutProbe::Linked => rrf::Checkout::Linked,
+    };
+    if rrf::fork_of(checkout, workspace).is_none() {
+        return Decision::Silent;
+    }
+    let Some(kind) = relais_task_kind(&op.task, &run_dir) else {
+        journal_as("silent", "relais run kind_unknown");
+        return Decision::Silent;
+    };
+    let Some(fire) = rrf::judge(kind, workspace, checkout) else {
+        return Decision::Silent;
+    };
+    journal_as(
+        outcome_of(stance),
+        &format!(
+            "relais run {} {}",
+            fire.label(),
+            workspace.unwrap_or("auto")
+        ),
+    );
+    let text = rrf::phrase(fire, workspace, run_cwd);
+    match stance {
+        Stance::Observe => Decision::Silent,
+        Stance::Advise => Decision::Advise(text),
+        Stance::Deny => Decision::Deny(text),
     }
 }
 

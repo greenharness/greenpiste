@@ -119,7 +119,7 @@ Install: one PreToolUse block, matcher `mcp__relais__run`, idempotent.
 Rollback: set the stance to `observe`, or remove the block.
 
 ## Phases
-- [ ] Phase 1 — rule, payload, dispatch, install target:
+- [x] Phase 1 — rule, payload, dispatch, install target:
   `crates/amont-agent-guard/src/rules/relais_run_forks.rs` (RULE: default
   `advise`, max `deny`, evidence 19 forks / 528 runs measured 2026-11-14;
   `TOOL`; `phrase_*`; a pure `judge(kind, workspace, checkout) -> Option<Fire>`),
@@ -132,7 +132,7 @@ Rollback: set the stance to `observe`, or remove the block.
   `crates/amont-agent-guard/src/settings.rs` (TARGETS entry after the
   screenshot one), `crates/amont-agent-guard/src/corpus.rs` +
   `crates/amont-agent-guard/tests/corpus/relais-run-forks.cases`.
-- [ ] Phase 2 — tests: unit tests on `judge` for every table row;
+- [x] Phase 2 — tests: unit tests on `judge` for every table row;
   `tests/hook.rs` with a temp repo plus `git worktree add`: primary auto →
   advises; linked auto → silent; linked fork → advises; linked auto with a
   relais in-place marker present → silent; inspect in primary → silent;
@@ -145,7 +145,7 @@ Rollback: set the stance to `observe`, or remove the block.
   session → two advisories and two journal rows (fails if `first_telling` is
   copied from `on_screenshot`); primary with an `agent_id` → advises.
   `tests/settings_merge.rs` block counts.
-- [ ] Phase 3 — docs and release notes: `docs/rules.md` (row, `advise`,
+- [x] Phase 3 — docs and release notes: `docs/rules.md` (row, `advise`,
   ceiling `deny`), `CHANGELOG.md` (Unreleased → Added). Release via
   `tag-release`; the install is the person's.
 
@@ -170,6 +170,9 @@ Rollback: set the stance to `observe`, or remove the block.
   coupled the hook to relais's marker layout.
 - 2026-11-14 — An unreadable contract is `unknown` and silent (Codex): an
   oversized but valid inspection contract must never be denied.
+- 2026-11-14 — Implemented by relais run run-6603e92b3b99c-1fa9 (in place in
+  this worktree, accepted), with the 10 findings carried from review; paths
+  are `crates/greenpiste-guard/...`, since 3b-1 (#254) merged first.
 
 ## Verification
 - Phase 1–2, the debug binary fed real PreToolUse JSON with a scratch
@@ -182,8 +185,21 @@ Rollback: set the stance to `observe`, or remove the block.
   through `/tmp` and from a subdirectory → the primary text. Exit 0 and
   0 B stderr every case; journal line per fire. Would fail if the arm is
   missing (every case empty).
+  Observed (`target/debug/greenpiste hook`, scratch repo under `~/.cache`):
+  primary auto, primary `fork`, primary through a symlink and from `sub/` →
+  the primary text with `greenpiste/` prefix, `jq -e .` ok; linked `fork`
+  and `isolated` → the second text naming the value; linked auto, linked
+  auto with `relais-inplace/run-x.json`, `in-place`, `bogus`, `kind:
+  inspect` (object and relative path), a non-repo dir and a bare repo →
+  empty. 14 cases, every one exit 0, 0 B stderr. Journal: 5 primary + 2
+  second `advised` rows, 1 `not_a_repo` row, none for the silent in-repo
+  cases. (The plan's "through `/tmp`" case was run as a symlink to the
+  primary, which is what it tests.)
 - Install: `install --write` twice on a scratch copy of the real
   `settings.json` → one new block, second run no diff, real file untouched.
+  Observed: rc 0 twice, one PreToolUse block with matcher
+  `mcp__relais__run`, second run "already current — nothing written" and
+  `diff -q` equal, real `~/.claude/settings.json` sha unchanged.
 - Suite: `cargo clippy --workspace --all-targets -- -D warnings`;
   `cargo test --workspace --locked`.
 - After the person's install (follow-up, not a pending row): one real

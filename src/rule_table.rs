@@ -49,6 +49,7 @@ pub const RULES: &[Rule] = &[
     crate::rules::code_read_not_lsp::RULE,
     crate::rules::symbol_grep_not_lsp::RULE,
     crate::rules::screenshot_in_main_session::RULE,
+    crate::rules::relais_run_forks::RULE,
     crate::rules::lint_suppression_added::RULE,
     crate::rules::agent_guidance_written::RULE,
     crate::rules::agent_guidance_shape::RULE,
@@ -162,9 +163,9 @@ mod tests {
         }
     }
 
-    /// The table holds every rule, in its place: 52 rules, which are the 45
+    /// The table holds every rule, in its place: 54 rules, which are the 45
     /// left after the workspace split and the observe-rule retirements, plus
-    /// `screenshot-in-main-session`, `work-overlap`, `ask-unopened-page`,
+    /// `relais-run-forks`, `screenshot-in-main-session`, `work-overlap`, `ask-unopened-page`,
     /// `suppressions-override`, `plan-names-no-paths`, `chain-with-and` and
     /// `block-reinstate`, with `push-preview` between
     /// `push-preflight` and `plan-review-panel`, and `implementation-review` after
@@ -172,7 +173,7 @@ mod tests {
     #[test]
     fn the_table_holds_every_rule_in_its_place() {
         let ids: Vec<&str> = RULES.iter().map(|r| r.id).collect();
-        assert_eq!(ids.len(), 53, "{ids:?}");
+        assert_eq!(ids.len(), 54, "{ids:?}");
         let at = |id: &str| {
             ids.iter()
                 .position(|x| *x == id)

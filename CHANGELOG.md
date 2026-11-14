@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- `relais-run-forks` (advise, ceiling `deny`): a `mcp__relais__run` change
+  run that would fork a worktree of its own (`cwd` is the primary checkout, or
+  a linked worktree with `workspace` `fork` or `isolated`) is advised, every
+  time, to start a `worktree-task` worktree and leave `workspace` unset in it.
+  Inspection and verify runs, `in-place`, and a `cwd` the hook cannot place
+  are left alone. `greenpiste install --write` adds one `PreToolUse` block
+  for `mcp__relais__run`.
+
 ### Fixed
 
 - The Homebrew upgrade from `amont-agent` needs `brew trust --formula

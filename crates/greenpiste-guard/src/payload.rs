@@ -210,6 +210,30 @@ pub struct ScreenshotOp {
     pub permission_mode: String,
 }
 
+/// How a relais run names its task.
+pub enum RelaisTask {
+    /// An inline task object; `kind` is its `kind` string, when present.
+    Inline { kind: Option<String> },
+    /// A contract path, as given.
+    Path(String),
+    /// Neither: a shape the hook does not know.
+    Unknown,
+}
+
+/// A `mcp__relais__run` call about to run.
+pub struct RelaisRunOp {
+    /// The tool's own `cwd` argument, as given.
+    pub run_cwd: Option<String>,
+    pub task: RelaisTask,
+    pub workspace: Option<String>,
+    /// The payload's `agent_id`; `None` for the main conversation.
+    pub agent_id: Option<String>,
+    /// The session's working directory.
+    pub cwd: PathBuf,
+    pub session: String,
+    pub permission_mode: String,
+}
+
 /// The text a write tool was handed, before anything is applied.
 pub enum Change {
     /// `Write`: the whole new content.
@@ -317,6 +341,8 @@ pub enum Event {
     /// A chrome-devtools `take_screenshot` about to run:
     /// `screenshot-in-main-session` judges it.
     PreScreenshot(Box<ScreenshotOp>),
+    /// A relais `run` about to start: `relais-run-forks` judges it.
+    PreRelaisRun(Box<RelaisRunOp>),
     /// An LSP tool call that has run: recorded, never spoken to.
     PostLsp(Box<LspCall>),
     /// A prompt the person submitted: the one moment a typed approval of a
@@ -583,6 +609,40 @@ pub fn parse(raw: &str) -> Event {
                     .and_then(|x| x.as_str())
                     .filter(|s| !s.trim().is_empty())
                     .map(str::to_string),
+                agent_id: agent_id(),
+                cwd: cwd.clone(),
+                session: str_at("session_id"),
+                permission_mode: str_at("permission_mode"),
+            }))
+        }
+        Some("PreToolUse")
+            if v.get("tool_name").and_then(|x| x.as_str())
+                == Some(crate::rules::relais_run_forks::TOOL) =>
+        {
+            let input = v.get("tool_input");
+            let field = |key: &str| {
+                input
+                    .and_then(|i| i.get(key))
+                    .and_then(|x| x.as_str())
+                    .filter(|s| !s.trim().is_empty())
+                    .map(str::to_string)
+            };
+            let task = match input.and_then(|i| i.get("task")) {
+                Some(serde_json::Value::String(path)) if !path.trim().is_empty() => {
+                    RelaisTask::Path(path.clone())
+                }
+                Some(serde_json::Value::Object(object)) => RelaisTask::Inline {
+                    kind: object
+                        .get("kind")
+                        .and_then(|x| x.as_str())
+                        .map(str::to_string),
+                },
+                _ => RelaisTask::Unknown,
+            };
+            Event::PreRelaisRun(Box::new(RelaisRunOp {
+                run_cwd: field("cwd"),
+                task,
+                workspace: field("workspace"),
                 agent_id: agent_id(),
                 cwd: cwd.clone(),
                 session: str_at("session_id"),
