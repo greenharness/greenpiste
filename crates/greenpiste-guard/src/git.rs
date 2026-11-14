@@ -525,6 +525,62 @@ fn kill_group(leader: u32) {
 #[cfg(not(unix))]
 fn kill_group(_leader: u32) {}
 
+/// What a cwd is, for a relais run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CheckoutProbe {
+    Primary,
+    Linked,
+    Bare,
+    /// Not inside any repository, or the directory is not there.
+    NotARepo,
+    /// A timeout, or git could not run or failed otherwise.
+    Failed,
+}
+
+/// Whether `dir` is a primary checkout, a linked worktree, a bare repository or
+/// outside a repository: one bounded `git rev-parse`, both directories
+/// canonicalized before they are compared, so a symlinked path or a
+/// subdirectory compares right.
+pub fn checkout_probe(dir: &std::path::Path, deadline: Instant) -> CheckoutProbe {
+    if !dir.is_dir() {
+        return CheckoutProbe::NotARepo;
+    }
+    let args = [
+        "rev-parse",
+        "--path-format=absolute",
+        "--is-bare-repository",
+        "--git-dir",
+        "--git-common-dir",
+    ];
+    let bytes = match bytes_bounded_detail(dir, &args, None, &[("LC_ALL", "C")], deadline) {
+        Ok(bytes) => bytes,
+        Err(BoundedFailure::Exited { stderr }) if stderr.contains("not a git repository") => {
+            return CheckoutProbe::NotARepo;
+        }
+        Err(_) => return CheckoutProbe::Failed,
+    };
+    let text = String::from_utf8_lossy(&bytes);
+    let mut lines = text.lines();
+    let (Some(bare), Some(git_dir), Some(common_dir)) = (lines.next(), lines.next(), lines.next())
+    else {
+        return CheckoutProbe::Failed;
+    };
+    if bare.trim() == "true" {
+        return CheckoutProbe::Bare;
+    }
+    let (Ok(git_dir), Ok(common_dir)) = (
+        std::fs::canonicalize(git_dir.trim()),
+        std::fs::canonicalize(common_dir.trim()),
+    ) else {
+        return CheckoutProbe::Failed;
+    };
+    if git_dir == common_dir {
+        CheckoutProbe::Primary
+    } else {
+        CheckoutProbe::Linked
+    }
+}
+
 /// The default branch of the repository at `dir` as `(ref to compare against,
 /// branch name)`: origin/HEAD's target, else `main`, else `master`, each as
 /// `origin/<name>` when that exists, else the local branch.

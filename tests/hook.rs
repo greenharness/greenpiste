@@ -4420,3 +4420,475 @@ fn an_empty_session_id_advises_every_time() {
     assert_advises("", None, serde_json::json!({}), None);
     assert_advises("", None, serde_json::json!({}), None);
 }
+
+// relais-run-forks
+
+const FORKS_PREFIX: &str = "greenpiste/relais-run-forks: ";
+const FORKS_PRIMARY_TAIL: &str = " is in the primary checkout, so this change run would fork \
+     a worktree of its own. Start a worktree with the worktree-task skill, pass its path as cwd, \
+     and leave workspace unset.";
+const FORKS_SECOND: &str = "greenpiste/relais-run-forks: workspace \"fork\" makes a second \
+     worktree beside this one. Leave workspace unset; relais edits a linked worktree in place.";
+const FORKS_OBSERVE: &str = "[amont \"agent.relais-run-forks\"]\n\tstance = observe";
+const FORKS_DENY: &str = "[amont \"agent.relais-run-forks\"]\n\tstance = deny";
+
+fn forks_git(dir: &std::path::Path, args: &[&str]) {
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args([
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "commit.gpgsign=false",
+        ])
+        .args(args)
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_SYSTEM", "/dev/null")
+        .output()
+        .expect("git runs");
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+/// A scratch primary checkout with one commit and a linked worktree beside it.
+struct ForksRepo {
+    root: PathBuf,
+    primary: PathBuf,
+    linked: PathBuf,
+}
+
+fn forks_repo(name: &str) -> ForksRepo {
+    // Canonical, so macOS's /var → /private/var matches the hook's resolved
+    // path; Windows's verbatim `\\?\` prefix is dropped, as git cannot take it.
+    let canonical = std::fs::canonicalize(std::env::temp_dir()).expect("temp dir");
+    let canonical = canonical.to_string_lossy();
+    let root = PathBuf::from(canonical.strip_prefix(r"\\?\").unwrap_or(&canonical))
+        .join(format!("forks-{}-{name}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root); // absent is the usual case; a dir that will not go makes the git init below fail loudly
+    let primary = root.join("primary");
+    std::fs::create_dir_all(&primary).expect("primary");
+    forks_git(&primary, &["init", "-q", "-b", "main"]);
+    std::fs::write(primary.join("f"), "x").expect("file");
+    forks_git(&primary, &["add", "f"]);
+    forks_git(&primary, &["commit", "-q", "-m", "one"]);
+    let linked = root.join("linked");
+    forks_git(
+        &primary,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            linked.to_str().unwrap(),
+            "-b",
+            "side",
+        ],
+    );
+    ForksRepo {
+        root,
+        primary,
+        linked,
+    }
+}
+
+fn forks_call(
+    session: &str,
+    run_cwd: &str,
+    task: serde_json::Value,
+    workspace: Option<&str>,
+    agent_id: Option<&str>,
+    global: &str,
+) -> (Reply, String) {
+    let mut input = serde_json::json!({"cwd": run_cwd, "task": task});
+    if let Some(w) = workspace {
+        input["workspace"] = serde_json::json!(w);
+    }
+    let mut payload = serde_json::json!({
+        "hook_event_name": "PreToolUse",
+        "tool_name": "mcp__relais__run",
+        "tool_input": input,
+        "session_id": session,
+        "cwd": "/tmp",
+    });
+    if let Some(id) = agent_id {
+        payload["agent_id"] = serde_json::json!(id);
+    }
+    send_with_global_err(&payload.to_string(), global)
+}
+
+fn forks_change() -> serde_json::Value {
+    serde_json::json!({"kind": "change", "objective": "x"})
+}
+
+/// Whether the journal holds a row for `session` with `needle`; a journal
+/// never written holds none.
+fn forks_row(session: &str, needle: &str) -> bool {
+    std::fs::read_to_string(home().join("amont-agent").join("journal.log"))
+        .unwrap_or_default()
+        .lines()
+        .any(|row| row.contains(session) && row.contains(needle))
+}
+
+fn forks_expect_silent(reply: &(Reply, String)) {
+    assert_eq!(reply.0.code, 0);
+    assert_eq!(reply.1, "");
+    assert_eq!(reply.0.stdout, "", "expected silence");
+}
+
+fn forks_expect_primary(reply: &(Reply, String), cwd: &str) {
+    assert_eq!(reply.0.code, 0);
+    assert_eq!(reply.1, "");
+    assert_eq!(
+        reply.0.reason(),
+        format!("{FORKS_PREFIX}{cwd}{FORKS_PRIMARY_TAIL}"),
+        "{}",
+        reply.0.stdout
+    );
+}
+
+#[test]
+fn relais_run_forks_advises_in_the_primary_checkout() {
+    let repo = forks_repo("primary");
+    let cwd = repo.primary.to_str().unwrap();
+    for workspace in [None, Some("auto"), Some("fork"), Some("isolated")] {
+        let reply = forks_call("rfprim01", cwd, forks_change(), workspace, None, "");
+        forks_expect_primary(&reply, cwd);
+        assert_eq!(reply.0.decision(), None);
+    }
+    assert!(forks_row("rfprim01", "relais run primary auto"));
+    assert!(forks_row("rfprim01", "advised"));
+    let _ = std::fs::remove_dir_all(&repo.root); // temp-dir cleanup: a leftover dir only costs disk, and forks_repo starts from a fresh name
+}
+
+#[test]
+fn relais_run_forks_in_a_linked_worktree() {
+    let repo = forks_repo("linked");
+    let cwd = repo.linked.to_str().unwrap();
+    forks_expect_silent(&forks_call("rflink01", cwd, forks_change(), None, None, ""));
+    forks_expect_silent(&forks_call(
+        "rflink01",
+        cwd,
+        forks_change(),
+        Some("auto"),
+        None,
+        "",
+    ));
+    forks_expect_silent(&forks_call(
+        "rflink01",
+        cwd,
+        forks_change(),
+        Some("in-place"),
+        None,
+        "",
+    ));
+    let reply = forks_call("rflink02", cwd, forks_change(), Some("fork"), None, "");
+    assert_eq!(reply.0.reason(), FORKS_SECOND, "{}", reply.0.stdout);
+    assert!(forks_row("rflink02", "relais run second fork"));
+    // A relais in-place marker beside the worktree changes nothing for auto.
+    std::fs::create_dir_all(repo.linked.join(".relais")).unwrap();
+    std::fs::write(repo.linked.join(".relais").join("inplace"), "run-1").unwrap();
+    forks_expect_silent(&forks_call("rflink03", cwd, forks_change(), None, None, ""));
+    let _ = std::fs::remove_dir_all(&repo.root); // temp-dir cleanup: a leftover dir only costs disk, and forks_repo starts from a fresh name
+}
+
+#[test]
+fn relais_run_forks_reads_the_kind() {
+    let repo = forks_repo("kind");
+    let cwd = repo.primary.to_str().unwrap();
+    forks_expect_silent(&forks_call(
+        "rfkind01",
+        cwd,
+        serde_json::json!({"kind": "inspect"}),
+        None,
+        None,
+        "",
+    ));
+    std::fs::write(repo.primary.join("c.json"), r#"{"kind":"inspect"}"#).unwrap();
+    forks_expect_silent(&forks_call(
+        "rfkind02",
+        cwd,
+        serde_json::json!("c.json"),
+        None,
+        None,
+        "",
+    ));
+    forks_expect_silent(&forks_call(
+        "rfkind03",
+        cwd,
+        serde_json::json!(repo.primary.join("c.json").to_str().unwrap()),
+        None,
+        None,
+        "",
+    ));
+    assert!(!forks_row("rfkind02", "kind_unknown"));
+    std::fs::write(repo.primary.join("ch.json"), r#"{"kind":"change"}"#).unwrap();
+    forks_expect_primary(
+        &forks_call(
+            "rfkind04",
+            cwd,
+            serde_json::json!("ch.json"),
+            None,
+            None,
+            "",
+        ),
+        cwd,
+    );
+    let _ = std::fs::remove_dir_all(&repo.root); // temp-dir cleanup: a leftover dir only costs disk, and forks_repo starts from a fresh name
+}
+
+#[test]
+fn relais_run_forks_unreadable_contracts_are_kind_unknown() {
+    let repo = forks_repo("unknown");
+    let cwd = repo.primary.to_str().unwrap();
+    std::fs::write(repo.primary.join("bad.json"), "{ nope").unwrap();
+    std::fs::create_dir(repo.primary.join("dir.json")).unwrap();
+    let mut big = String::from(r#"{"kind":"inspect","pad":""#);
+    big.push_str(&"x".repeat(70 * 1024));
+    big.push_str("\"}");
+    std::fs::write(repo.primary.join("big.json"), big).unwrap();
+    let cases = [
+        ("rfunk001", "missing.json", ""),
+        ("rfunk002", "bad.json", ""),
+        ("rfunk003", "dir.json", ""),
+        ("rfunk004", "big.json", ""),
+        ("rfunk005", "big.json", FORKS_DENY),
+    ];
+    for (session, path, global) in cases {
+        let reply = forks_call(session, cwd, serde_json::json!(path), None, None, global);
+        forks_expect_silent(&reply);
+        assert!(
+            forks_row(session, "relais run kind_unknown"),
+            "{session}: {:?}",
+            journal_rows(session)
+        );
+    }
+    let _ = std::fs::remove_dir_all(&repo.root); // temp-dir cleanup: a leftover dir only costs disk, and forks_repo starts from a fresh name
+}
+
+/// A FIFO named as the contract is never opened: opening one blocks until a
+/// writer comes, so the hook would hang. Silent, journalled `kind_unknown`.
+#[cfg(unix)]
+#[test]
+fn relais_run_forks_a_fifo_contract_does_not_block() {
+    let repo = forks_repo("fifo");
+    let cwd = repo.primary.to_str().unwrap();
+    let fifo = repo.primary.join("pipe.json");
+    let made = Command::new("mkfifo")
+        .arg(&fifo)
+        .status()
+        .expect("mkfifo runs");
+    assert!(made.success());
+    let reply = forks_call(
+        "rffifo01",
+        cwd,
+        serde_json::json!("pipe.json"),
+        None,
+        None,
+        "",
+    );
+    forks_expect_silent(&reply);
+    assert!(
+        forks_row("rffifo01", "relais run kind_unknown"),
+        "{:?}",
+        journal_rows("rffifo01")
+    );
+    let _ = std::fs::remove_dir_all(&repo.root); // temp-dir cleanup: a leftover dir only costs disk, and forks_repo starts from a fresh name
+}
+
+/// A git that fails for another reason than "not a git repository": the
+/// probe fails open, silent, journalled `probe_failed`.
+#[cfg(unix)]
+#[test]
+fn relais_run_forks_a_failing_probe_is_silent_and_journalled() {
+    use std::os::unix::fs::PermissionsExt;
+    let repo = forks_repo("probe");
+    let bin = repo.root.join("bin");
+    std::fs::create_dir(&bin).unwrap();
+    let git = bin.join("git");
+    std::fs::write(&git, "#!/bin/sh\necho 'fatal: boom' >&2\nexit 1\n").unwrap();
+    std::fs::set_permissions(&git, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let path = format!(
+        "{}:{}",
+        bin.display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    let payload = serde_json::json!({
+        "hook_event_name": "PreToolUse",
+        "tool_name": "mcp__relais__run",
+        "tool_input": {"cwd": repo.primary.to_str().unwrap(), "task": forks_change()},
+        "session_id": "rfprobe1",
+        "cwd": "/tmp",
+    });
+    let dir = home();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_greenpiste"))
+        .arg("hook")
+        .env("CLAUDE_CONFIG_DIR", &dir)
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_SYSTEM", "/dev/null")
+        .env("PATH", &path)
+        .env_remove("AMONT_AGENT_OFF")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("the binary runs");
+    child
+        .stdin
+        .take()
+        .expect("stdin")
+        .write_all(payload.to_string().as_bytes())
+        .expect("write the payload");
+    let out = child.wait_with_output().expect("the hook exits");
+    assert_eq!(out.status.code(), Some(0));
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "", "expected silence");
+    assert!(
+        forks_row("rfprobe1", "relais run probe_failed"),
+        "{:?}",
+        journal_rows("rfprobe1")
+    );
+    let _ = std::fs::remove_dir_all(&repo.root); // temp-dir cleanup: a leftover dir only costs disk, and forks_repo starts from a fresh name
+}
+
+#[cfg(unix)]
+#[test]
+fn relais_run_forks_finds_the_primary_through_a_symlink_and_a_subdirectory() {
+    let repo = forks_repo("paths");
+    std::fs::create_dir(repo.primary.join("sub")).unwrap();
+    let sub = repo.primary.join("sub");
+    forks_expect_primary(
+        &forks_call(
+            "rfpath01",
+            sub.to_str().unwrap(),
+            forks_change(),
+            None,
+            None,
+            "",
+        ),
+        sub.to_str().unwrap(),
+    );
+    let link = repo.root.join("link");
+    std::os::unix::fs::symlink(&repo.primary, &link).unwrap();
+    forks_expect_primary(
+        &forks_call(
+            "rfpath02",
+            link.to_str().unwrap(),
+            forks_change(),
+            None,
+            None,
+            "",
+        ),
+        repo.primary.to_str().unwrap(),
+    );
+    let _ = std::fs::remove_dir_all(&repo.root); // temp-dir cleanup: a leftover dir only costs disk, and forks_repo starts from a fresh name
+}
+
+#[test]
+fn relais_run_forks_is_silent_where_there_is_no_checkout() {
+    let repo = forks_repo("none");
+    let bare = repo.root.join("bare.git");
+    forks_git(
+        &repo.root,
+        &["init", "-q", "--bare", bare.to_str().unwrap()],
+    );
+    let outside = repo.root.join("outside");
+    std::fs::create_dir(&outside).unwrap();
+    let missing = repo.root.join("missing");
+    let cases = [
+        ("rfnone01", bare.to_str().unwrap().to_string()),
+        ("rfnone02", missing.to_str().unwrap().to_string()),
+        ("rfnone03", outside.to_str().unwrap().to_string()),
+    ];
+    for (session, cwd) in cases {
+        forks_expect_silent(&forks_call(session, &cwd, forks_change(), None, None, ""));
+        assert!(
+            !forks_row(session, "probe_failed"),
+            "{:?}",
+            journal_rows(session)
+        );
+    }
+    assert!(forks_row("rfnone01", "relais run bare"));
+    assert!(forks_row("rfnone02", "relais run not_a_repo"));
+    assert!(forks_row("rfnone03", "relais run not_a_repo"));
+    let _ = std::fs::remove_dir_all(&repo.root); // temp-dir cleanup: a leftover dir only costs disk, and forks_repo starts from a fresh name
+}
+
+#[test]
+fn relais_run_forks_unknown_workspace_and_stances() {
+    let repo = forks_repo("stance");
+    let cwd = repo.primary.to_str().unwrap();
+    forks_expect_silent(&forks_call(
+        "rfstn001",
+        cwd,
+        forks_change(),
+        Some("bogus"),
+        None,
+        "",
+    ));
+    forks_expect_silent(&forks_call(
+        "rfstn002",
+        cwd,
+        forks_change(),
+        None,
+        None,
+        FORKS_OBSERVE,
+    ));
+    assert!(forks_row("rfstn002", "watched"));
+    let denied = forks_call("rfstn003", cwd, forks_change(), None, None, FORKS_DENY);
+    assert_eq!(
+        denied.0.decision().as_deref(),
+        Some("deny"),
+        "{}",
+        denied.0.stdout
+    );
+    assert_eq!(
+        denied.0.reason(),
+        format!("{FORKS_PREFIX}{cwd}{FORKS_PRIMARY_TAIL}")
+    );
+    assert!(forks_row("rfstn003", "denied"));
+    let linked = repo.linked.to_str().unwrap();
+    let second = forks_call(
+        "rfstn004",
+        linked,
+        forks_change(),
+        Some("fork"),
+        None,
+        FORKS_DENY,
+    );
+    assert_eq!(
+        second.0.decision().as_deref(),
+        Some("deny"),
+        "{}",
+        second.0.stdout
+    );
+    assert_eq!(second.0.reason(), FORKS_SECOND);
+    let _ = std::fs::remove_dir_all(&repo.root); // temp-dir cleanup: a leftover dir only costs disk, and forks_repo starts from a fresh name
+}
+
+#[test]
+fn relais_run_forks_advises_every_time_and_for_a_subagent() {
+    let repo = forks_repo("every");
+    let cwd = repo.primary.to_str().unwrap();
+    forks_expect_primary(
+        &forks_call("rfevry01", cwd, forks_change(), None, None, ""),
+        cwd,
+    );
+    forks_expect_primary(
+        &forks_call("rfevry01", cwd, forks_change(), None, None, ""),
+        cwd,
+    );
+    let rows = journal_rows("rfevry01")
+        .iter()
+        .filter(|r| r.contains("relais run primary") && r.contains("advised"))
+        .count();
+    assert_eq!(rows, 2, "{:?}", journal_rows("rfevry01"));
+    forks_expect_primary(
+        &forks_call("rfevry02", cwd, forks_change(), None, Some("w1"), ""),
+        cwd,
+    );
+    let _ = std::fs::remove_dir_all(&repo.root); // temp-dir cleanup: a leftover dir only costs disk, and forks_repo starts from a fresh name
+}

@@ -62,6 +62,7 @@ pub mod plan_review_panel;
 pub mod publish_without_skill;
 pub mod push_preflight;
 pub mod read_unbounded_large;
+pub mod relais_run_forks;
 pub mod release_tag_push;
 pub mod screenshot_in_main_session;
 pub mod sed_in_place;

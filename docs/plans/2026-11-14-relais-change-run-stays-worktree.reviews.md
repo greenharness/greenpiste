@@ -1,0 +1,7 @@
+## Full reviews (reference)
+- backend (opus): r1 approve-with-changes, 5 findings (1 high stale marker, 3 medium, 1 low), all accepted; 28k, 32 s. r2 approve-with-changes, 2 medium (probe_failed + in-place tests) carried; 36k, 14 s. Delta approve; carried: mark the 6 linked forks inferred, deny floor of 5 matched fires, count kind_unknown in the audit; 44k, 21 s.
+- lang:rust (opus): r1 approve-with-changes, 3 findings (1 high path-format/canonicalize, 2 medium tests and contract read), accepted; 36k, 53 s. r2 approve, 2 low carried (bytes_bounded_detail split; held journalled advised, now moot); 43k, 21 s. Delta approve, 1 low carried: read the contract last, only when cwd and workspace would fire; 50k, 21 s.
+- tui (opus): r1 approve-with-changes, 4 findings (3 medium advice wording/order, 1 low prefix), accepted; 29k, 42 s. r2 approve; 34k, 17 s. Delta approve; 40k, 8 s.
+- unix (opus): r1 approve-with-changes, 5 findings (1 high symlinked cwd, 3 medium, 1 low), accepted; 39k, 58 s. r2 approve, 1 low carried (not_a_repo vs probe_failed); 46k, 20 s. Delta approve, 1 low carried: an unknown workspace value is silent; 54k, 23 s.
+- codex (high effort): approve-with-changes. High 1: a held marker does not cause a fork, relais refuses (workspace_ops.rs:27-41) → held fire dropped. High 2: oversized/unreadable contract must not count as change → kind unknown, silent. Medium: promotion needs a matched audit of false fires and misses → Verification rewritten.
+

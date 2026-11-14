@@ -193,6 +193,10 @@ const EMBEDDED: &[(&str, &str)] = &[
         include_str!("../tests/corpus/screenshot-in-main-session.cases"),
     ),
     (
+        "relais-run-forks",
+        include_str!("../tests/corpus/relais-run-forks.cases"),
+    ),
+    (
         "lint-suppression-added",
         include_str!("../tests/corpus/lint-suppression-added.cases"),
     ),
