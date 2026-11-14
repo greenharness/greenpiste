@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v4.1.0
+
 ### Added
 
 - `relais-run-forks` (advise, ceiling `deny`): a `mcp__relais__run` change
