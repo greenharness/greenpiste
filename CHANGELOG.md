@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v4.0.0
+
 ### Changed
 
 - Every message, usage text, `--version` line, command hint and the hook
