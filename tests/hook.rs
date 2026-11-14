@@ -4667,6 +4667,36 @@ fn relais_run_forks_unreadable_contracts_are_kind_unknown() {
     let _ = std::fs::remove_dir_all(&repo.root); // temp-dir cleanup: a leftover dir only costs disk, and forks_repo starts from a fresh name
 }
 
+/// A FIFO named as the contract is never opened: opening one blocks until a
+/// writer comes, so the hook would hang. Silent, journalled `kind_unknown`.
+#[cfg(unix)]
+#[test]
+fn relais_run_forks_a_fifo_contract_does_not_block() {
+    let repo = forks_repo("fifo");
+    let cwd = repo.primary.to_str().unwrap();
+    let fifo = repo.primary.join("pipe.json");
+    let made = Command::new("mkfifo")
+        .arg(&fifo)
+        .status()
+        .expect("mkfifo runs");
+    assert!(made.success());
+    let reply = forks_call(
+        "rffifo01",
+        cwd,
+        serde_json::json!("pipe.json"),
+        None,
+        None,
+        "",
+    );
+    forks_expect_silent(&reply);
+    assert!(
+        forks_row("rffifo01", "relais run kind_unknown"),
+        "{:?}",
+        journal_rows("rffifo01")
+    );
+    let _ = std::fs::remove_dir_all(&repo.root); // temp-dir cleanup: a leftover dir only costs disk, and forks_repo starts from a fresh name
+}
+
 /// A git that fails for another reason than "not a git repository": the
 /// probe fails open, silent, journalled `probe_failed`.
 #[cfg(unix)]

@@ -2065,8 +2065,12 @@ fn relais_task_kind(
         RelaisTask::Unknown => None,
         RelaisTask::Path(path) => {
             let path = cwd.join(path);
-            // Judged on the opened handle, so the file cannot be swapped for
-            // a FIFO between the check and the read.
+            // The path is judged before the open, because opening a FIFO
+            // blocks until a writer comes; the handle is judged again after,
+            // so a swap between the two is still refused.
+            if !std::fs::metadata(&path).ok()?.is_file() {
+                return None;
+            }
             let file = std::fs::File::open(&path).ok()?;
             if !file.metadata().ok()?.is_file() {
                 return None;
