@@ -2151,8 +2151,14 @@ fn on_relais_run(op: &crate::payload::RelaisRunOp) -> Decision {
         ),
     );
     // The resolved directory, so `.` or a symlink names the real place.
+    // Windows's verbatim `\\?\` prefix is dropped from what the reader sees.
     let shown = std::fs::canonicalize(&run_dir).unwrap_or_else(|_| run_dir.clone());
-    let text = rrf::phrase(fire, workspace, &shown.display().to_string());
+    let shown = shown.display().to_string();
+    let text = rrf::phrase(
+        fire,
+        workspace,
+        shown.strip_prefix(r"\\?\").unwrap_or(&shown),
+    );
     match stance {
         Stance::Observe => Decision::Silent,
         Stance::Advise => Decision::Advise(text),

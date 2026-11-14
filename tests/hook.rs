@@ -4464,8 +4464,11 @@ struct ForksRepo {
 }
 
 fn forks_repo(name: &str) -> ForksRepo {
-    let root = std::fs::canonicalize(std::env::temp_dir())
-        .expect("temp dir")
+    // Canonical, so macOS's /var → /private/var matches the hook's resolved
+    // path; Windows's verbatim `\\?\` prefix is dropped, as git cannot take it.
+    let canonical = std::fs::canonicalize(std::env::temp_dir()).expect("temp dir");
+    let canonical = canonical.to_string_lossy();
+    let root = PathBuf::from(canonical.strip_prefix(r"\\?\").unwrap_or(&canonical))
         .join(format!("forks-{}-{name}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root); // absent is the usual case; a dir that will not go makes the git init below fail loudly
     let primary = root.join("primary");
