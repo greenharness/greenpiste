@@ -90,7 +90,7 @@ and grh pins greenpiste 4.0.0 by its new name.
 
 
 ## Code review
-- amont-agent: backend, lang:rust, lang:python, platform, unix, tui, architect
+- amont-agent: platform (narrowed after 4.0.1: the remaining branch changes only the release workflow and docs; backend, lang:rust, lang:python, unix, tui and architect reviewed the code through 99468e9c, merged as #254)
 - grh: backend, lang:rust, unix (lang:python left out: no Python file; platform left out: no workflow changed; tui left out: one recommend string; architect left out: a catalog entry in the existing format)
 - greenharness-skills: none — markdown only
 - decisions: none — markdown only
@@ -240,7 +240,7 @@ and grh pins greenpiste 4.0.0 by its new name.
   `amont-agent/packaging/homebrew/greenpiste.rb` (class `Greenpiste`, `bin.install "greenpiste"`, the alias as a copy, `def refusing_by_default`, a `test do` running both names).
 - [x] Phase 4a — docs: `amont-agent/README.md`, `amont-agent/docs/`,
   `amont-agent/CHANGELOG.md`.
-- [ ] Phase 4b — release 4.0.0, after this branch merges: the tag only after
+- [x] Phase 4b — release 4.0.0 (shipped as 4.0.1), after this branch merges: the tag only after
   the crates.io token scope is checked; the tap files are written by
   `publish-tap`.
 - [ ] Phase 5 — grh and the skills: `grh/catalog.toml`, `grh/src/install.rs`, `grh/src/fetch.rs`, `grh/src/uninstall.rs`, `grh/src/manifest.rs`, `grh/docs/extension-manifest.md`, `grh/tests/cli.rs`,
@@ -303,6 +303,27 @@ give a working greenpiste 4.0.0, the hooks run as `greenpiste`, and
 `amont-agent` answers only as an alias until the census.
 
 ## Decision log
+
+- 2026-11-14 (Phase 4b) — released as 4.0.1; the upgrade from amont-agent
+  is seen working on this machine, and the CI upgrade step with `brew trust`
+  first runs at the next tag (4.0.2 or later). v4.0.0 (run 43614594979) published the GitHub
+  release, crates.io and the post-publish install, but its tap job failed: the
+  checksum check ran in the checkout and read the committed `greenharness.toml`
+  (fixed, PR #256). v4.0.1 (run 43617034578): every job green up to the tap,
+  which now holds `Formula/greenpiste.rb` and the rename; `verify-brew`'s fresh
+  install, version, guard and `brew test` steps passed; its upgrade from the
+  pre-rename formula stopped at Homebrew's trust check ("Refusing to load
+  formula fredericrous/tap/greenpiste from untrusted tap"), because the rename
+  lands on a formula nobody named. The check and `docs/install.md` now run
+  `brew trust --formula fredericrous/tap/greenpiste` first (this branch). On this
+  machine (the person asked for both): `brew trust --formula
+  fredericrous/tap/greenpiste`, then `brew upgrade fredericrous/tap/amont-agent`
+  migrated the keg to `greenpiste/4.0.1`; `/usr/local/bin/greenpiste` and
+  `/usr/local/bin/amont-agent` both answer `greenpiste 4.0.1` and are `cmp`
+  identical; `greenpiste install --write` moved all 16 hook entries (15 at planning, plus the one 3.35.0's
+  clear-at-boundary added; a scratch `install --write` also writes 16) from
+  `/usr/local/bin/amont-agent` to `/usr/local/bin/greenpiste` (none left on the
+  old name, none doubled); `greenpiste doctor` passes with no old-name warning.
 
 - 2026-11-14 — PR #254's windows-latest CI failed in the names test: it
   built the shown path with `.display()`, which uses backslashes on Windows,
